@@ -1,16 +1,38 @@
 package main
 
 import (
-    "os"
-	
-    tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"context"
+	telegram "github.com/pashandor789/broadcaster/bot"
+	"github.com/pashandor789/broadcaster/http"
+	"github.com/pashandor789/broadcaster/repository"
+	"log"
+	"os"
 )
 
 func main() {
-    bot, err := tgbotapi.NewBotAPI(os.Getenv("BROADCASTER_API_TOKEN"))
-    if err != nil {
-        panic(err)
-    }
+	log.SetOutput(os.Stdout)
 
-    bot.Debug = true
+	err := SetupConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	repo, err := repository.NewPostgresSQLPool(GetDatabaseURL())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tg, err := telegram.NewTgBot(GetBotConfig(), repo)
+
+	go tg.Serve(context.Background())
+
+	server, err := http.NewHTTPServer(GetServerConfig(), tg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = server.ListenAndServe()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
